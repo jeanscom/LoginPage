@@ -260,7 +260,7 @@ def admin_page():
                 st.info(f"No program folders found in {main_folder}. Add program folders first.")
 
     
-    elif file_action == "Delete Folders":
+     elif file_action == "Delete Folders":
             st.subheader("Delete Modules")
 
             # Select a program folder
