@@ -1,130 +1,114 @@
-
-# login.py
-import psycopg2
-from psycopg2.extras import RealDictCursor
+import sqlite3
 import streamlit as st
 import os
 import pandas as pd
 
-# PostgreSQL connection configuration
-DB_CONFIG = {
-    "dbname": "Test",
-    "user": "root",
-    "password": "NUs3vCbOkqvjcaykBc067PiJKJBA7UPc",
-    "host": "tutorial-ngv3.onrender.com",  # Change if hosted elsewhere
-    "port": "5432"        # Default PostgreSQL port
-}
 
+# Initialize SQLite database
 MAIN_FOLDER = "Course"
-
-def get_db_connection():
-    try:
-        conn = psycopg2.connect(
-            dbname=DB_CONFIG["dbname"],
-            user=DB_CONFIG["user"],
-            password=DB_CONFIG["password"],
-            host=DB_CONFIG["host"],
-            port=DB_CONFIG["port"],
-            sslmode="require"  # Ensures SSL is used
-        )
-        return conn
-    except Exception as e:
-        st.error(f"Failed to connect to the database: {e}")
-        return None
-
-
 def init_db():
-    conn = get_db_connection()
-    if conn:
-        with conn.cursor() as cursor:
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS User (
-                    U_ID SERIAL PRIMARY KEY,
-                    Name TEXT NOT NULL,
-                    Email_ID TEXT UNIQUE NOT NULL,
-                    Password TEXT NOT NULL,
-                    Course TEXT NOT NULL,
-                    Status INTEGER DEFAULT 0
-                )
-            """)
-            conn.commit()
-        conn.close()
+    conn = sqlite3.connect("users.db")
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS User (
+            U_ID INTEGER PRIMARY KEY AUTOINCREMENT,
+            Name TEXT NOT NULL,
+            Email_ID TEXT UNIQUE NOT NULL,
+            Password TEXT NOT NULL,
+            Course TEXT NOT NULL,
+            Status INTEGER
+        )
+    """)
+    conn.commit()
+    conn.close()
 
-def fetch_all_users(status=None):
-    conn = get_db_connection()
-    if conn:
-        query = "SELECT U_ID, Name, Email_ID, Course, Status FROM User"
-        if status is not None:
-            query += " WHERE Status = %s"
-        with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-            cursor.execute(query, (status,) if status is not None else None)
-            users = cursor.fetchall()
-        conn.close()
-        return pd.DataFrame(users)
-    return pd.DataFrame()
+def fetch_all_users():
+    conn = sqlite3.connect("users.db")
+    query = "SELECT U_ID, Name, Email_ID, Course FROM User"
+    users = pd.read_sql_query(query, conn)  # Return data as a pandas DataFrame
+    conn.close()
+    return users
 
+# Admin functionality: View all users
+def view_all_users():
+    conn = sqlite3.connect("users.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT U_ID, Name, Email_ID, Course FROM User")
+    users = cursor.fetchall()
+    conn.close()
+    return users
+
+# User functionality: Verify credentials
 def verify_user(email, password):
-    conn = get_db_connection()
-    if conn:
-        with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-            cursor.execute("""
-                SELECT Name, Email_ID, Password, Course 
-                FROM User 
-                WHERE Email_ID = %s AND Password = %s AND Status = 1
-            """, (email, password))
-            user = cursor.fetchone()
-        conn.close()
-        return user
+    conn = sqlite3.connect("users.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT Name, Email_ID, Password, Course FROM User WHERE Email_ID = ? AND Password = ? ANd Status=1", (email, password))
+    user = cursor.fetchone()
+    conn.close()
+    return user
 
+# User registration
 def register_user(name, email, password, course):
-    conn = get_db_connection()
-    if conn:
-        try:
-            with conn.cursor() as cursor:
-                cursor.execute("""
-                    INSERT INTO User (Name, Email_ID, Password, Course) 
-                    VALUES (%s, %s, %s, %s)
-                """, (name, email, password, course))
-            conn.commit()
-            st.success("User registered successfully!")
-        except psycopg2.IntegrityError:
-            st.error("Email already exists. Please try a different email.")
-        conn.close()
-
-def update_password(email, new_password):
-    conn = get_db_connection()
-    if conn:
-        with conn.cursor() as cursor:
-            cursor.execute("UPDATE User SET Password = %s WHERE Email_ID = %s", (new_password, email))
-        conn.commit()
-        conn.close()
-
-def list_folders(main_folder):
+    conn = sqlite3.connect("users.db")
+    cursor = conn.cursor()
+    status=0
     try:
-        return [folder for folder in os.listdir(main_folder) if os.path.isdir(os.path.join(main_folder, folder))]
-    except FileNotFoundError:
-        st.error(f"The folder '{main_folder}' does not exist.")
-        return []
+        cursor.execute("INSERT INTO User (Name, Email_ID, Password, Course, Status) VALUES (?, ?, ?, ?, ?)",
+                       (name, email, password, course, status))
+        conn.commit()
+        st.success("User registered successfully!")
+    except sqlite3.IntegrityError:
+        st.error("Email already exists. Please try a different email.")
+    conn.close()
+
+# Initialize database
+init_db()
+
+# Update user password
+def updatepassword(email, new_password):
+    conn = sqlite3.connect("users.db")
+    cursor = conn.cursor()
+    cursor.execute("UPDATE User SET Password = ? WHERE Email_ID = ?", (new_password, email))
+    conn.commit()
+    conn.close()
+
 
 def login_page():
+    # Initialize session state
     if "user" not in st.session_state:
         st.session_state.user = None
 
+    # Streamlit app
+    #st.title("Login Page")
+
     if st.session_state.user:
+        # Redirect to appropriate page
         if st.session_state.user["role"] == "Admin":
             admin_page()
         else:
             user_page()
     else:
+        # Sidebar: Choose between login or register
         choice = st.sidebar.selectbox("Choose an option", ["Login", "Register"])
+        def list_folders(main_folder):
+       
+            try:
+                return [folder for folder in os.listdir(main_folder) if os.path.isdir(os.path.join(main_folder, folder))]
+            except FileNotFoundError:
+                st.error(f"The folder '{main_folder}' does not exist.")
+                return []
 
-        if choice == "Register":
+        # User Registration Page
+        if choice == "Register":  # Replace this with your actual page navigation check
             st.subheader("User Registration")
             name = st.text_input("Name")
             email = st.text_input("Email")
             password = st.text_input("Password", type="password")
-
-            courses = list_folders(MAIN_FOLDER)
+            
+            # Dynamically list courses from subfolders
+            main_folder = MAIN_FOLDER
+            courses = list_folders(main_folder)  # List all subfolders (courses)
+            
             if courses:
                 course = st.selectbox("Select a Course", courses)
             else:
@@ -133,7 +117,8 @@ def login_page():
 
             if st.button("Register"):
                 if name and email and password and course:
-                    register_user(name, email, password, course)
+                    register_user(name, email, password, course)  # Assuming this function handles registration
+                    st.success(f"Successfully registered for {course}.")
                 else:
                     st.error("All fields are required.")
 
@@ -141,30 +126,42 @@ def login_page():
             st.subheader("Login")
             email = st.text_input("Email", placeholder="Enter Your Email ID")
             password = st.text_input("Password", placeholder="Enter Your Password", type="password")
+            #role = st.radio("Login as", ["Admin", "User"])
 
-            if st.button("Login"):
+            if st.button("Login"):      
+                
                 if email == "admin@gmail.com" and password == "123":
                     st.session_state.user = {"role": "Admin", "name": "Admin"}
                     st.success("Welcome, Admin!")
                     st.rerun()
+
                 else:
                     user = verify_user(email, password)
                     if user:
                         st.session_state.user = {
                             "role": "User",
-                            "name": user["name"],
-                            "email": user["email_id"],
-                            "password": user["password"],
-                            "course": user["course"],
+                            "name": user[0],
+                            "email": user[1],
+                            "password": user[2],
+                            "course": user[3],
                         }
-                        st.success(f"Welcome, {user['name']}!")
+                        st.success(f"Welcome, {user[0]}!")
                         st.rerun()
                     else:
                         st.error("Invalid credentials.")
 
-# Initialize the database
-init_db()
-
+def fetch_all_users(status=None):
+    conn = sqlite3.connect("users.db")
+    if status is None:
+        # Fetch all users if no status filter is applied
+        query = "SELECT U_ID, Name, Email_ID, Course, Status FROM User"
+        users = pd.read_sql_query(query, conn)
+    else:
+        # Fetch users with specific status
+        query = "SELECT U_ID, Name, Email_ID, Course, Status FROM User WHERE Status = ?"
+        users = pd.read_sql_query(query, conn, params=(status,))
+    conn.close()
+    return users
 def admin_page(): 
     if st.sidebar.button("Logout"):
         st.session_state.user = None  # Clear user session  
@@ -812,6 +809,7 @@ def user_page():
 
 if __name__ == "__main__":
     login_page()
+    init_db()
 
 
 
