@@ -8,10 +8,10 @@ import pandas as pd
 
 # PostgreSQL connection configuration
 DB_CONFIG = {
-    "dbname": "your_database_name",
-    "user": "your_username",
-    "password": "your_password",
-    "host": "localhost",  # Change if hosted elsewhere
+    "dbname": "Test",
+    "user": "root",
+    "password": "NUs3vCbOkqvjcaykBc067PiJKJBA7UPc",
+    "host": "https://tutorial-ngv3.onrender.com",  # Change if hosted elsewhere
     "port": "5432"        # Default PostgreSQL port
 }
 
