@@ -177,7 +177,7 @@ def admin_page():
     #course_action = st.sidebar.selectbox("Manage Course:", ["Add New Course", "View Courses", "Edit Courses", "Delete Courses"])
 
     if admin_option == "Manage Files":
-        file_action = st.sidebar.selectbox("Manage files:", ["Upload Files", "Delete Uploaded Files"])
+        file_action = st.sidebar.selectbox("Manage files:", ["Upload Files", "Delete Uploaded Files","Delete Folders"])
         if file_action == "Upload Files":
         # File management logic 
             st.subheader("Manage Program Files")
@@ -259,6 +259,30 @@ def admin_page():
             else:
                 st.info(f"No program folders found in {main_folder}. Add program folders first.")
 
+    elif file_action == "Delete Folders":
+            st.subheader("Delete Modules")
+
+            # Select a program folder
+            program_folders = list_folders(main_folder)
+            if program_folders:
+                selected_program_folder = st.selectbox("Select a program folder:", program_folders)
+                if selected_program_folder:
+                    program_folder_path = os.path.join(main_folder, selected_program_folder)
+
+                    # List Modules
+                    primary_subfolders = list_folders(program_folder_path)
+                    if primary_subfolders:
+                        selected_primary_subfolder = st.selectbox("Select a Module to delete:", primary_subfolders)
+                        primary_subfolder_path = os.path.join(program_folder_path, selected_primary_subfolder)
+
+                        # Confirm and delete the selected Module
+                        if st.button(f"Delete Module '{selected_primary_subfolder}'"):
+                            delete_folder(primary_subfolder_path)
+                            st.success(f"Module '{selected_primary_subfolder}' deleted successfully.")
+                    else:
+                        st.info(f"No Modules found in '{selected_program_folder}'.")
+            else:
+                st.info(f"No program folders found in '{main_folder}'. Add program folders first.")
         
     elif admin_option == "Manage Users":
         user_action = st.sidebar.selectbox("User Management Options:", ["View Users", "Edit User", "Delete User"])
