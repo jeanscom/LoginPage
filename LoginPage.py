@@ -177,16 +177,17 @@ def admin_page():
     #course_action = st.sidebar.selectbox("Manage Course:", ["Add New Course", "View Courses", "Edit Courses", "Delete Courses"])
 
     if admin_option == "Manage Files":
-        file_action = st.sidebar.selectbox("Manage files:", ["Upload Files", "Delete Uploaded Files","Delete Folders"])
+        file_action = st.sidebar.selectbox("Manage files:", ["Upload Files", "Delete Uploaded Files", "Delete Folders"])
+
         if file_action == "Upload Files":
-        # File management logic 
+            # File management logic
             st.subheader("Manage Program Files")
             program_folders = list_folders(main_folder)
             if program_folders:
                 selected_program_folder = st.selectbox("Select a program folder:", program_folders)
                 if selected_program_folder:
                     program_folder_path = os.path.join(main_folder, selected_program_folder)
-
+        
                     # Get the expected file extension for this course
                     metadata_path = os.path.join(program_folder_path, "metadata.txt")
                     if os.path.exists(metadata_path):
@@ -196,24 +197,24 @@ def admin_page():
                     else:
                         expected_extension = None
                         st.warning(f"Metadata not found for {selected_program_folder}. File extension validation will be skipped.")
-
+        
                     # List subfolders in the program folder
                     subfolders = list_folders(program_folder_path)
                     if subfolders:
                         selected_subfolder = st.selectbox("Select a subfolder to upload files:", subfolders)
                         if selected_subfolder:
                             subfolder_path = os.path.join(program_folder_path, selected_subfolder)
-
+        
                             uploaded_files = st.file_uploader(
                                 "Upload files", 
                                 type=None,  # Allow all file types initially
                                 accept_multiple_files=True
                             )
-
+        
                             if uploaded_files:
                                 for uploaded_file in uploaded_files:
                                     file_extension = os.path.splitext(uploaded_file.name)[1]
-
+        
                                     # Check if the file extension matches the expected one
                                     if expected_extension and file_extension != expected_extension:
                                         st.error(f"File '{uploaded_file.name}' has an invalid extension. Expected: {expected_extension}")
@@ -222,17 +223,18 @@ def admin_page():
                                         save_file_to_folder(uploaded_file, subfolder_path)
                     else:
                         st.info(f"No subfolders found in {selected_program_folder}. Create a new subfolder to proceed.")
-
+        
                     # Create a new subfolder
                     new_subfolder_name = st.text_input("Enter the name of the new subfolder:")
                     if st.button("Create Subfolder"):
                         if new_subfolder_name.strip():
                             create_subfolder(program_folder_path, new_subfolder_name.strip())
+                            st.success(f"Subfolder '{new_subfolder_name}' created successfully.")
                         else:
                             st.warning("Please enter a valid subfolder name.")
             else:
                 st.info(f"No program folders found in {main_folder}. Add program folders first.")
-
+        
         elif file_action == "Delete Uploaded Files":
             st.subheader("Delete Uploaded Files")
             program_folders = list_folders(main_folder)
@@ -240,7 +242,7 @@ def admin_page():
                 selected_program_folder = st.selectbox("Select a program folder:", program_folders)
                 if selected_program_folder:
                     program_folder_path = os.path.join(main_folder, selected_program_folder)
-
+        
                     subfolders = list_folders(program_folder_path)
                     if subfolders:
                         selected_subfolder = st.selectbox("Select a subfolder:", subfolders)
@@ -252,30 +254,30 @@ def admin_page():
                             selected_file = st.selectbox("Select a file to delete:", uploaded_files)
                             if st.button("Delete File"):
                                 delete_file(subfolder_path, selected_file)
+                                st.success(f"File '{selected_file}' deleted successfully.")
                         else:
                             st.info("No files found in the selected subfolder.")
                     else:
                         st.info(f"No subfolders found in {selected_program_folder}.")
             else:
                 st.info(f"No program folders found in {main_folder}. Add program folders first.")
-
-    
-    elif file_action == "Delete Folders":
+        
+        elif file_action == "Delete Folders":
             st.subheader("Delete Modules")
-
+        
             # Select a program folder
             program_folders = list_folders(main_folder)
             if program_folders:
                 selected_program_folder = st.selectbox("Select a program folder:", program_folders)
                 if selected_program_folder:
                     program_folder_path = os.path.join(main_folder, selected_program_folder)
-
-                    # List Modules
+        
+                    # List Modules (primary subfolders)
                     primary_subfolders = list_folders(program_folder_path)
                     if primary_subfolders:
                         selected_primary_subfolder = st.selectbox("Select a Module to delete:", primary_subfolders)
                         primary_subfolder_path = os.path.join(program_folder_path, selected_primary_subfolder)
-
+        
                         # Confirm and delete the selected Module
                         if st.button(f"Delete Module '{selected_primary_subfolder}'"):
                             delete_folder(primary_subfolder_path)
@@ -283,7 +285,8 @@ def admin_page():
                     else:
                         st.info(f"No Modules found in '{selected_program_folder}'.")
             else:
-                st.info(f"No program folders found in '{main_folder}'. Add program folders first.")    
+                st.info(f"No program folders found in '{main_folder}'. Add program folders first.")
+
     elif admin_option == "Manage Users":
         user_action = st.sidebar.selectbox("User Management Options:", ["View Users", "Edit User", "Delete User"])
         if user_action == "View Users":
