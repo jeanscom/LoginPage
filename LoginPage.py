@@ -11,7 +11,7 @@ DB_CONFIG = {
     "dbname": "Test",
     "user": "root",
     "password": "NUs3vCbOkqvjcaykBc067PiJKJBA7UPc",
-    "host": "https://tutorial-ngv3.onrender.com",  # Change if hosted elsewhere
+    "host": "tutorial-ngv3.onrender.com",  # Change if hosted elsewhere
     "port": "5432"        # Default PostgreSQL port
 }
 
@@ -19,11 +19,19 @@ MAIN_FOLDER = "Course"
 
 def get_db_connection():
     try:
-        conn = psycopg2.connect(**DB_CONFIG)
+        conn = psycopg2.connect(
+            dbname=DB_CONFIG["dbname"],
+            user=DB_CONFIG["user"],
+            password=DB_CONFIG["password"],
+            host=DB_CONFIG["host"],
+            port=DB_CONFIG["port"],
+            sslmode="require"  # Ensures SSL is used
+        )
         return conn
     except Exception as e:
         st.error(f"Failed to connect to the database: {e}")
         return None
+
 
 def init_db():
     conn = get_db_connection()
@@ -803,7 +811,6 @@ def user_page():
 
 
 if __name__ == "__main__":
-    init_db()  # Initialize the database
     login_page()
 
 
