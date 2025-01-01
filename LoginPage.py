@@ -259,6 +259,7 @@ def admin_page():
             else:
                 st.info(f"No program folders found in {main_folder}. Add program folders first.")
 
+    
     elif file_action == "Delete Folders":
             st.subheader("Delete Modules")
 
@@ -282,8 +283,7 @@ def admin_page():
                     else:
                         st.info(f"No Modules found in '{selected_program_folder}'.")
             else:
-                st.info(f"No program folders found in '{main_folder}'. Add program folders first.")
-        
+                st.info(f"No program folders found in '{main_folder}'. Add program folders first.")    
     elif admin_option == "Manage Users":
         user_action = st.sidebar.selectbox("User Management Options:", ["View Users", "Edit User", "Delete User"])
         if user_action == "View Users":
