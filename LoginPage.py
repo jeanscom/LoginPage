@@ -2,7 +2,7 @@ import sqlite3
 import streamlit as st
 import os
 import pandas as pd
-
+import shutil
 
 # Initialize SQLite database
 MAIN_FOLDER = "Course"
@@ -72,7 +72,18 @@ def updatepassword(email, new_password):
     conn.commit()
     conn.close()
 
-
+def delete_folder(folder_path):
+    """Deletes the folder and its contents."""
+    try:
+        # Ensure the folder exists
+        if os.path.exists(folder_path) and os.path.isdir(folder_path):
+            shutil.rmtree(folder_path)  # This removes the folder and all its contents
+            st.success(f"Folder '{folder_path}' deleted successfully.")
+        else:
+            st.error(f"The folder '{folder_path}' does not exist.")
+    except Exception as e:
+        st.error(f"An error occurred while deleting the folder: {e}")
+        
 def login_page():
     # Initialize session state
     if "user" not in st.session_state:
