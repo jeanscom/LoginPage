@@ -2,10 +2,12 @@ import sqlite3
 import streamlit as st
 import os
 import pandas as pd
-import shutil
+import random
+import smtplib
 
 # Initialize SQLite database
 MAIN_FOLDER = "Course"
+
 def init_db():
     conn = sqlite3.connect("users.db")
     cursor = conn.cursor()
@@ -15,112 +17,112 @@ def init_db():
             Name TEXT NOT NULL,
             Email_ID TEXT UNIQUE NOT NULL,
             Password TEXT NOT NULL,
-            Course TEXT NOT NULL,
-            Status INTEGER
+            Course TEXT NOT NULL,   
+            Status INTEGER,
+            OTP INTEGER
         )
     """)
     conn.commit()
     conn.close()
 
-def fetch_all_users():
+def fetch_all_users(status=None):
     conn = sqlite3.connect("users.db")
-    query = "SELECT U_ID, Name, Email_ID, Course FROM User"
-    users = pd.read_sql_query(query, conn)  # Return data as a pandas DataFrame
+    if status is None:
+        query = "SELECT U_ID, Name, Email_ID, Course FROM User"
+        users = pd.read_sql_query(query, conn)
+    else:
+        query = "SELECT U_ID, Name, Email_ID, Course FROM User WHERE Status = ?"
+        users = pd.read_sql_query(query, conn, params=(status,))
     conn.close()
     return users
 
-# Admin functionality: View all users
-def view_all_users():
+def is_email_registered(email):
     conn = sqlite3.connect("users.db")
     cursor = conn.cursor()
-    cursor.execute("SELECT U_ID, Name, Email_ID, Course FROM User")
-    users = cursor.fetchall()
+    cursor.execute("SELECT COUNT(*) FROM User WHERE Email_ID = ?", (email,))
+    count = cursor.fetchone()[0]
     conn.close()
-    return users
+    return count > 0
 
-# User functionality: Verify credentials
-def verify_user(email, password):
+def send_otp(email):
+    otp = random.randint(100000, 999999)
+    try:
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.starttls()
+        server.login("scomcoaching@gmail.com", "xgbf hqum tlys gweq")  # Replace with your credentials
+
+        subject = "Your Verification OTP"
+        body = f"Your OTP for login is: {otp}"
+        message = f"Subject: {subject}\n\n{body}"
+
+        server.sendmail("scomcoaching@gmail.com", email, message)  # Replace with your credentials
+        server.quit()
+        return otp
+    except Exception as e:
+        st.error(f"Failed to send OTP: {e}")
+        return None
+
+def update_otp(email, otp):
     conn = sqlite3.connect("users.db")
     cursor = conn.cursor()
-    cursor.execute("SELECT Name, Email_ID, Password, Course FROM User WHERE Email_ID = ? AND Password = ? ANd Status=1", (email, password))
-    user = cursor.fetchone()
+    cursor.execute("UPDATE User SET OTP = ? WHERE Email_ID = ?", (otp, email))
+    conn.commit()
     conn.close()
-    return user
 
-# User registration
+def verify_user(email, password, otp):
+    conn = sqlite3.connect("users.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT Password, OTP, Status FROM User WHERE Email_ID = ?", (email,))
+    record = cursor.fetchone()
+    conn.close()
+
+    if record and record[0] == password and record[1] == otp and record[2] == 1:
+        return True
+    elif record and record[2] == 0:
+        st.error("Account is inactive. Please contact support.")
+    return False
+
 def register_user(name, email, password, course):
     conn = sqlite3.connect("users.db")
     cursor = conn.cursor()
-    status=0
     try:
-        cursor.execute("INSERT INTO User (Name, Email_ID, Password, Course, Status) VALUES (?, ?, ?, ?, ?)",
-                       (name, email, password, course, status))
+        cursor.execute("INSERT INTO User (Name, Email_ID, Password, Course, Status) VALUES (?, ?, ?, ?, 0)", 
+                       (name, email, password, course))
         conn.commit()
-        st.success("User registered successfully!")
+        st.success("User  registered successfully! Your account is pending activation.")
     except sqlite3.IntegrityError:
         st.error("Email already exists. Please try a different email.")
     conn.close()
 
-# Initialize database
-init_db()
-
-# Update user password
-def updatepassword(email, new_password):
+def fetch_user(email):
     conn = sqlite3.connect("users.db")
     cursor = conn.cursor()
-    cursor.execute("UPDATE User SET Password = ? WHERE Email_ID = ?", (new_password, email))
-    conn.commit()
+    cursor.execute("SELECT Name, Email_ID, Password, Course FROM User WHERE Email_ID = ?", (email,))
+    user = cursor.fetchone()
     conn.close()
+    return user
 
-def delete_folder(folder_path):
-    """Deletes the folder and its contents."""
-    try:
-        # Ensure the folder exists
-        if os.path.exists(folder_path) and os.path.isdir(folder_path):
-            shutil.rmtree(folder_path)  # This removes the folder and all its contents
-            st.success(f"Folder '{folder_path}' deleted successfully.")
-        else:
-            st.error(f"The folder '{folder_path}' does not exist.")
-    except Exception as e:
-        st.error(f"An error occurred while deleting the folder: {e}")
-        
 def login_page():
-    # Initialize session state
-    st.title("Scom Computer Tech")
     if "user" not in st.session_state:
         st.session_state.user = None
 
-    # Streamlit app
-    #st.title("Login Page")
-
     if st.session_state.user:
-        # Redirect to appropriate page
         if st.session_state.user["role"] == "Admin":
+            st.success("Welcome, Admin!")
             admin_page()
         else:
             user_page()
     else:
-        # Sidebar: Choose between login or register
         choice = st.sidebar.selectbox("Choose an option", ["Login", "Register"])
-        def list_folders(main_folder):
-       
-            try:
-                return [folder for folder in os.listdir(main_folder) if os.path.isdir(os.path.join(main_folder, folder))]
-            except FileNotFoundError:
-                st.error(f"The folder '{main_folder}' does not exist.")
-                return []
 
-        # User Registration Page
-        if choice == "Register":  # Replace this with your actual page navigation check
-            st.subheader("User Registration")
+        if choice == "Register":
+            st.subheader("User  Registration")
             name = st.text_input("Name")
             email = st.text_input("Email")
             password = st.text_input("Password", type="password")
-            
-            # Dynamically list courses from subfolders
             main_folder = MAIN_FOLDER
-            courses = list_folders(main_folder)  # List all subfolders (courses)
-            
+            courses = list_folders(main_folder)
+
             if courses:
                 course = st.selectbox("Select a Course", courses)
             else:
@@ -129,8 +131,7 @@ def login_page():
 
             if st.button("Register"):
                 if name and email and password and course:
-                    register_user(name, email, password, course)  # Assuming this function handles registration
-                    st.success(f"Successfully registered for {course}.")
+                    register_user(name, email, password, course)
                 else:
                     st.error("All fields are required.")
 
@@ -138,29 +139,81 @@ def login_page():
             st.subheader("Login")
             email = st.text_input("Email", placeholder="Enter Your Email ID")
             password = st.text_input("Password", placeholder="Enter Your Password", type="password")
-            #role = st.radio("Login as", ["Admin", "User"])
+            if email == "admin@gmail.com" and password == "123":
+                st.session_state.user = {
+                    "role": "Admin",
+                    "name": "Admin",
+                    "email": email,
+                }
+                st.success("Welcome, Admin!")
+                st.rerun()
 
-            if st.button("Login"):      
-                
-                if email == "admin@gmail.com" and password == "123":
-                    st.session_state.user = {"role": "Admin", "name": "Admin"}
-                    st.success("Welcome, Admin!")
-                    st.rerun()
-
-                else:
-                    user = verify_user(email, password)
+            if st.button("Login"):
+                if is_email_registered(email):
+                    user = fetch_user(email)
                     if user:
-                        st.session_state.user = {
-                            "role": "User",
-                            "name": user[0],
-                            "email": user[1],
-                            "password": user[2],
-                            "course": user[3],
-                        }
-                        st.success(f"Welcome, {user[0]}!")
-                        st.rerun()
+                        stored_password = user[2]
+                        status = fetch_user_status(email)
+
+                        if stored_password == password and status == 1:
+                            otp = send_otp(email)
+                            if otp:
+                                update_otp(email, otp)
+                                st.session_state.email = email
+                                st.session_state.password = password
+                                st.session_state.otp_sent = True
+                                st.session_state.otp_verified = False
+                                st.session_state.otp = otp
+                                st.rerun()
+                        elif status == 0:
+                            st.error("Account is inactive. Please contact support.")
+                        else:
+                            st.error("Invalid password.")
                     else:
-                        st.error("Invalid credentials.")
+                        st.error("Failed to fetch user details.")
+                else:
+                    st.error("Email not registered. Please register first.")
+
+def otp_verification_page():
+    st.subheader("OTP Verification")
+    entered_otp = st.text_input("Enter OTP", type="password")
+
+    if st.button("Verify OTP"):
+        if entered_otp:
+            if entered_otp == str(st.session_state.otp):
+                st.success("OTP verified successfully!")
+                user = fetch_user(st.session_state.email)
+                if user:
+                    st.session_state.user = {
+                        "role": "User ",
+                        "name": user[0],
+                        "email": user[1],
+                        "password": user[2],
+                        "course": user[3],
+                    }
+                    st.session_state.otp_verified = True  # Set the flag to indicate successful login
+                    user_page()  # Redirect to user page after successful verification
+                else:
+                    st.error("Failed to fetch user details.")
+            else:
+                st.error("Invalid OTP. Please try again.")
+        else:
+            st.error("Please enter the OTP.")
+
+def fetch_user_status(email):
+    conn = sqlite3.connect("users.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT Status FROM User WHERE Email_ID = ?", (email,))
+    status = cursor.fetchone()
+    conn.close()
+    return status[0] if status else None
+
+def list_folders(main_folder):
+    try:
+        return [folder for folder in os.listdir(main_folder) if os.path.isdir(os.path.join(main_folder, folder))]
+    except FileNotFoundError:
+        st.error(f"The folder '{main_folder}' does not exist.")
+        return []
 
 def fetch_all_users(status=None):
     conn = sqlite3.connect("users.db")
@@ -833,8 +886,6 @@ def user_page():
     st.sidebar.title("Navigation")
     page = st.sidebar.selectbox("Go to", ["Profile", "Browse Files", "Change Password"])
 
-
-
     if page == "Profile":
         profile_page()
     elif page == "Browse Files":
@@ -842,13 +893,13 @@ def user_page():
     elif page == "Change Password":
         change_password_page()
 
-
-
-
-
 if __name__ == "__main__":
-    login_page()
     init_db()
+    if "otp_verified" in st.session_state and st.session_state.otp_verified:
+        user_page()  # Show user page if OTP is verified
+    else:
+        login_page()
+
 
 
 
