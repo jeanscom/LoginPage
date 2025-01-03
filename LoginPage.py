@@ -86,6 +86,7 @@ def delete_folder(folder_path):
         
 def login_page():
     # Initialize session state
+    st.title("Scom Computer Tech")
     if "user" not in st.session_state:
         st.session_state.user = None
 
